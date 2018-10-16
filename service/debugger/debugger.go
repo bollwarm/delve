@@ -195,6 +195,14 @@ func (d *Debugger) LastModified() time.Time {
 	return d.target.BinInfo().LastModified()
 }
 
+// FunctionReturnLocations returns all return locations
+// for the given function. See the documentation for the
+// function of the same name within the `proc` package for
+// more information.
+func (d *Debugger) FunctionReturnLocations(fnName string) ([]uint64, error) {
+	return proc.FunctionReturnLocations(d.target, fnName)
+}
+
 // Detach detaches from the target process.
 // If `kill` is true we will kill the process after
 // detaching.
@@ -347,7 +355,11 @@ func (d *Debugger) CreateBreakpoint(requestedBp *api.Breakpoint) (*api.Breakpoin
 		}
 	}
 
+	bpkind := proc.UserBreakpoint
 	switch {
+	case requestedBp.TraceReturn:
+		bpkind = proc.TraceReturnBreakpoint
+		addr = requestedBp.Addr
 	case len(requestedBp.File) > 0:
 		fileName := requestedBp.File
 		if runtime.GOOS == "windows" {
@@ -375,7 +387,7 @@ func (d *Debugger) CreateBreakpoint(requestedBp *api.Breakpoint) (*api.Breakpoin
 		return nil, err
 	}
 
-	bp, err := d.target.SetBreakpoint(addr, proc.UserBreakpoint, nil)
+	bp, err := d.target.SetBreakpoint(addr, bpkind, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -414,6 +426,7 @@ func (d *Debugger) CancelNext() error {
 func copyBreakpointInfo(bp *proc.Breakpoint, requested *api.Breakpoint) (err error) {
 	bp.Name = requested.Name
 	bp.Tracepoint = requested.Tracepoint
+	bp.TraceReturn = requested.TraceReturn
 	bp.Goroutine = requested.Goroutine
 	bp.Stacktrace = requested.Stacktrace
 	bp.Variables = requested.Variables
