@@ -211,7 +211,8 @@ func Continue(dbp Process) error {
 				return conditionErrors(threads)
 			}
 		case curbp.Active && curbp.Internal:
-			if curbp.Kind == StepBreakpoint {
+			switch curbp.Kind {
+			case StepBreakpoint:
 				// See description of proc.(*Process).next for the meaning of StepBreakpoints
 				if err := conditionErrors(threads); err != nil {
 					return err
@@ -231,20 +232,27 @@ func Continue(dbp Process) error {
 				if err = setStepIntoBreakpoint(dbp, text, SameGoroutineCondition(dbp.SelectedGoroutine())); err != nil {
 					return err
 				}
-			} else if curbp.Kind == TraceReturnBreakpoint {
-				scope, err := GoroutineScope(curthread)
-				if err != nil {
-					return err
+			case TraceReturnBreakpoint:
+				for i := range threads {
+					scope, err := GoroutineScope(threads[i])
+					if err != nil {
+						switch err.(type) {
+						case ErrNoGoroutine:
+							continue
+						default:
+							return err
+						}
+					}
+					vars, err := scope.Locals()
+					if err != nil {
+						return err
+					}
+					threads[i].Common().returnValues = filterVariables(vars, func(v *Variable) bool {
+						return (v.Flags & VariableReturnArgument) != 0
+					})
 				}
-				vars, err := scope.Locals()
-				if err != nil {
-					return err
-				}
-				curthread.Common().returnValues = filterVariables(vars, func(v *Variable) bool {
-					return (v.Flags & VariableReturnArgument) != 0
-				})
 				return conditionErrors(threads)
-			} else {
+			default:
 				curthread.Common().returnValues = curbp.Breakpoint.returnInfo.Collect(curthread)
 				if err := dbp.ClearInternalBreakpoints(); err != nil {
 					return err

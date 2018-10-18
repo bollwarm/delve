@@ -61,8 +61,8 @@ type Breakpoint struct {
 
 	// Tracepoint flag, signifying this is a tracepoint.
 	Tracepoint bool `json:"continue"`
-	// TraceReturn will set a breakpoint on all possible return
-	// points for a function for the purpose of getting return values.
+	// TraceReturn flag signifying this is a breakpoint set at a return
+	// statement in a traced function.
 	TraceReturn bool `json:"traceReturn"`
 	// retrieve goroutine information
 	Goroutine bool `json:"goroutine"`
